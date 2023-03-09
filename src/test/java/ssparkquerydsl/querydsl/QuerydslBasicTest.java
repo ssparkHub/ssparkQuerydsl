@@ -2,6 +2,8 @@ package ssparkquerydsl.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,17 +11,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import ssparkquerydsl.querydsl.entity.Member;
-import ssparkquerydsl.querydsl.entity.QTeam;
 import ssparkquerydsl.querydsl.entity.Team;
 
-
 import javax.persistence.EntityManager;
-
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static ssparkquerydsl.querydsl.entity.QMember.member;
-import static ssparkquerydsl.querydsl.entity.QTeam.*;
+import static ssparkquerydsl.querydsl.entity.QTeam.team;
 
 @SpringBootTest
 @Transactional
@@ -38,10 +37,10 @@ public class QuerydslBasicTest {
         Team teamB = new Team("teamB");
         em.persist(teamA);
         em.persist(teamB);
-        Member member1 = new Member("member1", 10, teamA);
-        Member member2 = new Member("member2", 20, teamA);
-        Member member3 = new Member("member3", 30, teamB);
-        Member member4 = new Member("member4", 40, teamB);
+        Member member1 = new Member("member1", 101 , teamA);
+        Member member2 = new Member("member2", 202 , teamA);
+        Member member3 = new Member("member3", 30 , teamB);
+        Member member4 = new Member("member4", 40 , teamB);
         em.persist(member1);
         em.persist(member2);
         em.persist(member3);
@@ -306,4 +305,62 @@ public class QuerydslBasicTest {
        }
     }
 
+    @Test
+    void basicCase() {
+
+        List<String> result = queryFactory
+                .select(member.age
+                        .when(10).then("열살")
+                        .when(20).then("스무살")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+
+        for(String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    void complexCase() {
+        List<String> result = queryFactory
+                .select(new CaseBuilder()
+                        .when(member.age.between(0, 20)).then("0~20살")
+                        .when(member.age.between(21, 30)).then("21~30살")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+        for(String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    void constant() {
+        List<Tuple> result = queryFactory
+                .select(member.username,member.age, Expressions.constant("A"))
+                .from(member)
+                .fetch();
+
+        for (Tuple t : result ) {
+            System.out.println("tuple = " + t);
+        }
+    }
+
+    @Test
+    void concat() {
+
+        //{username}_{age}
+        String tuple = queryFactory
+                .select(
+                        member.username.concat("  _ ")
+                                .concat(member.age.stringValue())) //Enum타입의 경우 stringValue를 사용하면 된다
+                .from(member)
+                .where(member.username.eq("member2"))
+                .fetchOne();
+
+        System.out.println("tuple = " + tuple);
+
+
+    }
 }
